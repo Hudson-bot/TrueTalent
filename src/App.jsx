@@ -126,6 +126,7 @@ function App() {
   const [linkInfo, setLinkInfo] = useState({});
   const [skills, setSkills] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showModal, setShowModal] = useState(true); // Add this line
 
   // Fetch personal info from backend
   useEffect(() => {
@@ -172,6 +173,32 @@ function App() {
   return (
     <Router>
       <div className="relative min-h-screen bg-gray-100">
+        {showModal && (
+          <div className="absolute inset-0 z-20 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center">
+            <PersonalInfoModal
+              onSave={async (info) => {
+                try {
+                  const userId = localStorage.getItem("userId");
+                  const res = await axios.post(
+                    "http://localhost:5000/api/personal-info",
+                    {
+                      userId,
+                      ...info,
+                    }
+                  );
+                  setPersonalInfo(res.data);
+                  setShowModal(false);
+                  // Navigate to links page after saving
+                  window.location.href = "/links";
+                } catch (err) {
+                  console.error("Failed to save personal info:", err);
+                }
+              }}
+              onClose={() => setShowModal(false)}
+            />
+          </div>
+        )}
+
         <ModalLayer
           personalInfo={personalInfo}
           setPersonalInfo={setPersonalInfo}

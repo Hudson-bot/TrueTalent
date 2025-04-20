@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
+import TestModal from './TestModal';
 
 const CommunitySection = ({ personalInfo }) => {
   const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -70,7 +72,7 @@ const CommunitySection = ({ personalInfo }) => {
           </p>
         </div>
 
-        <div className="flex justify-center">
+        <div className="flex justify-center space-x-4">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
@@ -78,8 +80,21 @@ const CommunitySection = ({ personalInfo }) => {
           >
             Explore Community
           </motion.button>
+          <motion.button
+            onClick={() => setIsTestModalOpen(true)}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-cyan-500 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition"
+          >
+            Take Test
+          </motion.button>
         </div>
       </motion.div>
+
+      <TestModal
+        isOpen={isTestModalOpen}
+        onClose={() => setIsTestModalOpen(false)}
+      />
     </div>
   );
 };

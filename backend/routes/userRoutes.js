@@ -268,4 +268,48 @@ router.patch('/:id/skills', async (req, res) => {
   }
 });
 
+// Get user data for TestModal
+function extractGitHubUsername(url) {
+  const match = url.match(/^https?:\/\/(www\.)?github\.com\/([a-zA-Z0-9-]+)(\/)?$/);
+  return match ? match[2] : null;
+}
+
+async function fetchGitHubRepos(githubUrl) {
+  const username = extractGitHubUsername(githubUrl);
+  if (!username) throw new Error("Invalid GitHub URL");
+
+  const response = await axios.get(`https://api.github.com/users/${username}/repos`);
+  return response.data.map(repo => ({
+    name: repo.name,
+    description: repo.description,
+    language: repo.language
+  }));
+}
+
+router.get('/user-test-data/:userId', async (req, res) => {
+  try {
+    const user = await User.findOne({ userId: req.params.userId });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let repos = [];
+    try {
+      repos = await fetchGitHubRepos(user.github);
+    } catch (err) {
+      console.warn('Failed to fetch GitHub repos:', err.message);
+    }
+
+    res.json({
+      github: user.github || '',
+      resume: user.resume || '',
+      skills: user.skills || [],
+      repos
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
 export default router;

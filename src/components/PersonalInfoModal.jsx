@@ -15,7 +15,7 @@ const PersonalInfoModal = ({ onSave, onClose, existingData = {} }) => {
     userId: localStorage.getItem('userId')
   });
   
-  // Update form data when existingData changes
+  // Update form data when specific existingData properties change
   useEffect(() => {
     if (existingData) {
       setFormData(prevData => ({
@@ -29,7 +29,15 @@ const PersonalInfoModal = ({ onSave, onClose, existingData = {} }) => {
         resume: existingData.resume || prevData.resume
       }));
     }
-  }, [existingData]);
+  }, [
+    existingData.name, 
+    existingData.title, 
+    existingData.email, 
+    existingData.bio, 
+    existingData.github, 
+    existingData.linkedin, 
+    existingData.resume
+  ]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -46,7 +54,6 @@ const PersonalInfoModal = ({ onSave, onClose, existingData = {} }) => {
       
       // Update UI immediately for better user experience
       onSave(formData);
-      onClose();
       
       // Then save to backend
       console.log('Sending data to backend:', formData);
