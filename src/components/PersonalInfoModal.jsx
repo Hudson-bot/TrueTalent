@@ -62,9 +62,11 @@ const PersonalInfoModal = ({ onSave, onClose, existingData = {} }) => {
           'Content-Type': 'application/json'
         }
       });
+      
+      setIsSaving(false);
     } catch (err) {
       console.error('Failed to save personal info:', err.response?.data || err.message);
-      setError('Failed to save. Please try again.');
+      setError(err.response?.data?.message || 'Failed to save. Please try again.');
       setIsSaving(false);
     }
   };
