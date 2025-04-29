@@ -24,9 +24,9 @@ app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Mount routes
-app.use("/api/users", userRoutes);
-app.use("/api/resume", resume);
-app.use("/api/scoring", scoring);
+app.use('/api', userRoutes);
+app.use('/api', resume);
+app.use('/api', scoring);
 app.use("/api/projects", projectRoutes);
 
 mongoose
