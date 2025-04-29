@@ -737,14 +737,12 @@ const PostProject = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const navigate = useNavigate(); // Add useNavigate hook
+  const navigate = useNavigate();
   
-  // Memoize functions to prevent unnecessary re-renders
   const updateFormData = useCallback((field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
   
-  // Memoize navigation functions to prevent unnecessary re-renders
   const handleNext = useCallback(() => {
     setCurrentStep(prev => prev + 1);
   }, []);
@@ -757,24 +755,22 @@ const PostProject = () => {
     setCurrentStep(step);
   }, []);
   
-  // Use useRef to store the current formData without causing re-renders
   const formDataRef = useRef(formData);
-  // Fetch project data if editing an existing project
+
   useEffect(() => {
     const fetchProjectData = async () => {
       if (!editProjectId) return;
       
       try {
-        const response = await axios.get(`http://localhost:5000/api/projects/${editProjectId}`);
+        const response = await axios.get(`/api/projects/${editProjectId}`);
         const project = response.data;
         
-        // Update form data with project data
         setFormData({
           title: project.title || '',
           description: project.description || '',
           contentFocus: project.contentFocus || '',
           targetAudience: project.targetAudience || '',
-          attachment: null, // Can't restore the file object
+          attachment: null,
           attachmentPreview: project.attachmentUrl || null,
           requiredSkills: project.requiredSkills || [],
           currency: project.currency || 'USD',
@@ -789,84 +785,60 @@ const PostProject = () => {
     
     fetchProjectData();
   }, [editProjectId]);
-  // Update the ref whenever formData changes
+
   useEffect(() => {
     formDataRef.current = formData;
   }, [formData]);
 
   const handleSubmit = useCallback(async () => {
     setIsSubmitting(true);
-    
+
     try {
-      // Use the ref value instead of the dependency
       const currentFormData = formDataRef.current;
-      
-      // Create form data for file upload
       const projectData = new FormData();
-      
-      // Add all form fields
-      Object.keys(currentFormData).forEach(key => {
-        if (key !== 'attachment' && key !== 'attachmentPreview') {
-          if (key === 'requiredSkills') {
-            // Ensure requiredSkills is properly stringified as an array
+
+      Object.keys(currentFormData).forEach((key) => {
+        if (key !== "attachment" && key !== "attachmentPreview") {
+          if (key === "requiredSkills") {
             projectData.append(key, JSON.stringify(currentFormData[key] || []));
-          } else if (typeof currentFormData[key] === 'object' && currentFormData[key] !== null && !Array.isArray(currentFormData[key])) {
-            projectData.append(key, JSON.stringify(currentFormData[key]));
           } else {
             projectData.append(key, currentFormData[key]);
           }
         }
       });
-      
-      // Add attachment if exists
+
       if (currentFormData.attachment) {
-        projectData.append('attachment', currentFormData.attachment);
+        projectData.append("file", currentFormData.attachment);
       }
-      
-      // Get user ID from local storage or use a default for testing
-      let userId = localStorage.getItem('userId');
-      
-      // For testing purposes, if userId is not available, use a default
-      if (!userId) {
-        // In a real app, you might want to redirect to login instead
-        userId = '64f5e3c5e4b0a6d0f0f3c5d0'; // Default test user ID
-        console.warn('Using default user ID for testing. In production, user should be logged in.');
-      }
-      
-      // Add user ID to form data
-      projectData.append('userId', userId);
-      
-      // Add timestamp
-      projectData.append('createdAt', new Date().toISOString());
-      
-      // Send data to backend - use PUT if editing, POST if creating new
-      const url = editProjectId 
+
+      const userId = localStorage.getItem("userId") || "default";
+      const token = localStorage.getItem("token");
+
+      projectData.append("userId", userId);
+      projectData.append("createdAt", new Date().toISOString());
+
+      const url = editProjectId
         ? `http://localhost:5000/api/projects/${editProjectId}`
-        : 'http://localhost:5000/api/projects';
-      
-      const method = editProjectId ? 'put' : 'post';
-      
+        : `http://localhost:5000/api/projects`;
+
+      const method = editProjectId ? "put" : "post";
+
       const response = await axios[method](url, projectData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          Authorization: `Bearer ${token}`,
+        },
       });
-      
-      console.log('Project submitted successfully:', response.data);
-      
-      // Navigate to dashboard instead of showing success modal
-      navigate('/hire/projects');
-      
+
+      console.log("Project submitted successfully:", response.data);
+      navigate("/hire/projects");
     } catch (error) {
-      console.error('Error submitting project:', error);
-      alert(`Failed to submit project: ${error.response?.data?.message || error.message}`);
+      console.error("Error submitting project:", error);
+      alert("Failed to submit project. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
-  }, [editProjectId, navigate]); // Only depend on editProjectId and navigate
+  }, [editProjectId, navigate]);
   
-  // Render steps based on current step
   const renderStep = () => {
     switch (currentStep) {
       case 0:
@@ -937,7 +909,6 @@ const PostProject = () => {
       <HireSidebar activeTab="post-project" />
       
       <div className="flex-1 overflow-y-auto py-12 px-4">
-        {/* Header with back button */}
         <div className="max-w-3xl mx-auto mb-6">
           <div className="flex items-center">
             <button
@@ -952,7 +923,7 @@ const PostProject = () => {
             </h1>
           </div>
         </div>
-        {/* Progress indicator */}
+        
         <div className="max-w-3xl mx-auto mb-8">
           <div className="flex justify-between items-center">
             {['Project Details', 'Content Focus', 'Target Audience', 'Attachment', 'Skills', 'Budget', 'Summary'].map((step, index) => (
@@ -988,12 +959,10 @@ const PostProject = () => {
           </div>
         </div>
         
-        {/* Step content */}
         <AnimatePresence mode="wait">
           {renderStep()}
         </AnimatePresence>
         
-        {/* Success message */}
         <AnimatePresence>
           {submitSuccess && (
             <motion.div
@@ -1021,7 +990,6 @@ const PostProject = () => {
           )}
         </AnimatePresence>
         
-        {/* Loading overlay */}
         <AnimatePresence>
           {isSubmitting && (
             <motion.div

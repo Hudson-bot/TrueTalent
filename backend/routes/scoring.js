@@ -1,10 +1,9 @@
 import express from 'express';
 import axios from 'axios';
-import { storeGeneratedQA } from '../services/idealAnswers.js'; // Remove getStoredAnswer since it's not used
+import { storeGeneratedQA } from '../services/idealAnswers.js';
 
 const router = express.Router();
 
-// Update route path to exactly match frontend request
 router.post('/score', async (req, res) => {
     try {
         const { questions, answers } = req.body;
@@ -28,10 +27,13 @@ router.post('/score', async (req, res) => {
                     model: "anthropic/claude-2",
                     messages: [{
                         role: "system",
-                        content: "You are an expert technical interviewer. Score the answer out of 10, provide constructive feedback, and give the ideal answer."
+                        content: `You are an expert technical interviewer. Analyze the following response and provide:
+                        1. Score (0-10) - Start with "Score: X"
+                        2. Feedback - Start with "Feedback:"
+                        3. Ideal Answer - Start with "Ideal Answer:"`
                     }, {
                         role: "user",
-                        content: `Question: ${question}\nCandidate's Answer: ${answers[index]}\n\nPlease provide:\n1. Score (0-10)\n2. Feedback\n3. Ideal Answer`
+                        content: `Question: ${question}\nCandidate's Answer: ${answers[index]}`
                     }],
                     temperature: 0.7,
                     max_tokens: 500
@@ -43,15 +45,17 @@ router.post('/score', async (req, res) => {
                     }
                 });
 
-                // Validate response structure
-                if (!response.data?.choices?.[0]?.message?.content) {
+                // More robust response validation
+                if (!response?.data?.choices?.[0]?.message?.content) {
+                    console.error('Invalid API response:', response?.data);
                     throw new Error('Invalid API response structure');
                 }
 
                 const aiResponse = response.data.choices[0].message.content;
                 const analysis = parseAIResponse(aiResponse);
                 
-                storeGeneratedQA(question, analysis.correctAnswer);
+                // Store the generated Q&A
+                await storeGeneratedQA(question, analysis.correctAnswer);
 
                 return {
                     question,
@@ -59,36 +63,37 @@ router.post('/score', async (req, res) => {
                     analysis
                 };
             } catch (error) {
-                console.error(`Error analyzing question ${index + 1}:`, error);
-                // Return a fallback response for this question
+                console.error(`Error analyzing question "${question}":`, error);
                 return {
                     question,
                     userAnswer: answers[index],
                     analysis: {
                         score: 0,
-                        feedback: "Failed to analyze this response. Please try again.",
+                        feedback: "Error analyzing response. Please try again.",
                         correctAnswer: "Analysis unavailable"
-                    }
+                    },
+                    error: process.env.NODE_ENV === 'development' ? error.message : undefined
                 };
             }
         }));
 
-        // Filter out any null results
-        const validResults = results.filter(Boolean);
-
-        if (validResults.length === 0) {
-            throw new Error('Failed to analyze any responses');
-        }
+        // Calculate summary statistics
+        const validResults = results.filter(r => r.analysis.score !== undefined);
+        const averageScore = validResults.length > 0 
+            ? (validResults.reduce((acc, curr) => acc + curr.analysis.score, 0) / validResults.length).toFixed(2)
+            : 0;
 
         res.json({ 
-            results: validResults,
+            results,
             summary: {
-                totalQuestions: validResults.length,
-                averageScore: (validResults.reduce((acc, curr) => acc + curr.analysis.score, 0) / validResults.length).toFixed(2)
+                totalQuestions: questions.length,
+                analyzedQuestions: validResults.length,
+                failedQuestions: questions.length - validResults.length,
+                averageScore
             }
         });
     } catch (error) {
-        console.error('Scoring error:', error);
+        console.error('Scoring route error:', error);
         res.status(500).json({ 
             message: 'Error processing scoring request',
             error: error.message,
@@ -97,28 +102,41 @@ router.post('/score', async (req, res) => {
     }
 });
 
+// Enhanced parsing functions
 function parseAIResponse(response) {
-    // Basic parsing of AI response
-    return {
-        score: extractScore(response) || 0,
-        feedback: extractFeedback(response) || 'No feedback provided',
-        correctAnswer: extractAnswer(response) || 'No ideal answer available'
-    };
+    try {
+        const score = extractScore(response);
+        const feedback = extractSection(response, 'Feedback');
+        const correctAnswer = extractSection(response, 'Ideal Answer');
+
+        return {
+            score: score ?? 0,
+            feedback: feedback ?? 'No feedback provided',
+            correctAnswer: correctAnswer ?? 'No ideal answer available'
+        };
+    } catch (error) {
+        console.error('Error parsing AI response:', error);
+        return {
+            score: 0,
+            feedback: 'Error parsing response',
+            correctAnswer: 'Parsing error'
+        };
+    }
 }
 
 function extractScore(text) {
-    const scoreMatch = text.match(/\b(?:score:?\s*)?(\d+(?:\.\d+)?)\s*(?:\/\s*10)?\b/i);
-    return scoreMatch ? parseFloat(scoreMatch[1]) : 0;
+    const scoreMatch = text.match(/Score:\s*(\d+(?:\.\d+)?)/i);
+    if (scoreMatch) {
+        const score = parseFloat(scoreMatch[1]);
+        return Math.min(10, Math.max(0, score)); // Ensure score is between 0-10
+    }
+    return 0;
 }
 
-function extractFeedback(text) {
-    const feedbackMatch = text.match(/feedback:?(.*?)(?:\n|$)/i);
-    return feedbackMatch ? feedbackMatch[1].trim() : '';
-}
-
-function extractAnswer(text) {
-    const answerMatch = text.match(/ideal answer:?(.*?)(?:\n|$)/i);
-    return answerMatch ? answerMatch[1].trim() : '';
+function extractSection(text, sectionName) {
+    const regex = new RegExp(`${sectionName}:\\s*([\\s\\S]*?)(?=\\n\\w+:|$)`, 'i');
+    const match = text.match(regex);
+    return match ? match[1].trim() : null;
 }
 
 export default router;

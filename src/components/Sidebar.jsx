@@ -23,7 +23,7 @@ const Sidebar = ({ activeTab, setActiveTab, userData, handleFileChange, fetchLin
         <div className="flex items-center space-x-3">
           <div className="relative">
             <img 
-              src={userData.profilePic || 'https://via.placeholder.com/80'} 
+              src={userData.profilePic || 'https://www.vectorstock.com/royalty-free-vector/guy-anime-avatar-vector-43916661'} 
               className="w-12 h-12 rounded-full object-cover border-2 border-indigo-100"
               alt="Profile"
             />

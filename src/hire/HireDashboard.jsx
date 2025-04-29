@@ -282,29 +282,35 @@ const HireDashboard = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [newTask, setNewTask] = useState('');
   const [newFile, setNewFile] = useState(null);
+
+  const placeholderImage = "/assets/default-avatar.png"; // Replace with a local image path
   
   // Fetch user's projects
   useEffect(() => {
     const fetchProjects = async () => {
-      setIsLoading(true);
       try {
-        const userId = localStorage.getItem('userId');
-        if (!userId) {
-          navigate('/');
-          return;
-        }
-        
-        const response = await axios.get(`http://localhost:5000/api/projects/user/${userId}`);
+        setIsLoading(true); // Set loading to true before fetching
+        const userId = localStorage.getItem("userId");
+        const response = await axios.get(`http://localhost:5000/api/projects/user/${userId}`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
         setProjects(response.data);
       } catch (error) {
-        console.error('Error fetching projects:', error);
+        console.error("Error fetching projects:", error);
+        if (error.response && error.response.status === 404) {
+          alert("No projects found for this user.");
+        } else {
+          alert("Failed to fetch projects. Please try again.");
+        }
       } finally {
-        setIsLoading(false);
+        setIsLoading(false); // Ensure loading is set to false after fetching
       }
     };
-    
+
     fetchProjects();
-  }, [navigate]);
+  }, []);
   
   // Handle project selection
   const handleSelectProject = (project) => {

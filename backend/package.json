@@ -15,13 +15,10 @@
     "axios": "^1.6.2",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-<<<<<<< HEAD
     "express": "^4.18.2",
     "mongoose": "^8.14.0",
-    "multer": "^1.4.5-lts.2"
-=======
-    "express": "^4.18.2"
->>>>>>> 4735c7ce51407945510291d0fb3871457662add1
+    "multer": "^1.4.5-lts.2",
+    "pdf-parse": "^1.1.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
