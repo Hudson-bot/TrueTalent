@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
-import TestModal from './TestModal';
+import QuizGenerator from "./QuizGenerator";
 
 const CommunitySection = ({ personalInfo }) => {
   const [userName, setUserName] = useState("");
@@ -91,7 +91,7 @@ const CommunitySection = ({ personalInfo }) => {
         </div>
       </motion.div>
 
-      <TestModal
+      <QuizGenerator
         isOpen={isTestModalOpen}
         onClose={() => setIsTestModalOpen(false)}
       />

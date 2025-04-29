@@ -4,6 +4,8 @@ import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import userRoutes from './routes/userRoutes.js';
+import resume from './routes/resume.js';
+import scoring from './routes/scoring.js';
 
 dotenv.config();
 
@@ -16,6 +18,8 @@ app.use(express.json());
 
 // Mount routes
 app.use('/api', userRoutes);
+app.use('/api', resume);
+app.use('/api', scoring);
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
@@ -27,3 +31,5 @@ mongoose.connect(process.env.MONGO_URI)
   .catch(err => {
     console.error('❌ MongoDB connection failed:', err);
   });
+
+export default app;
