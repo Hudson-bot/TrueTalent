@@ -6,17 +6,21 @@ import {
   useNavigate,
   Navigate,
 } from "react-router-dom";
+import Dashboard from "./pages/Dashboard";
 import PersonalInfoModal from "./components/PersonalInfoModal";
 import LinkInfoModal from "./components/LinkInfoModal";
 import SkillSelectModal from "./components/SkillSelectModal";
-import Dashboard from "./pages/Dashboard";
+import HireDashboard from "./hire/HireDashboard";
+import PostProject from "./hire/PostProject";
+import HireProfile from "./hire/HireProfile";
 import axios from "axios";
+import LandingPage from "./Pages/LandingPage";
 import { useState, useEffect } from "react";
+import "./App.css";
 
 // Wrapper for Dashboard to handle edit navigation
 function DashboardWrapper({ personalInfo, linkInfo, skills }) {
   const navigate = useNavigate();
-
   return (
     <Dashboard
       personalInfo={personalInfo}
@@ -29,7 +33,7 @@ function DashboardWrapper({ personalInfo, linkInfo, skills }) {
   );
 }
 
-// ModalLayer always shows over the dashboard when path matches
+// ModalLayer shows over the dashboard when path matches
 function ModalLayer({
   personalInfo,
   setPersonalInfo,
@@ -52,7 +56,13 @@ function ModalLayer({
     }
   }, [userId]);
 
-  if (!["/personal", "/links", "/skills"].includes(pathname)) return null;
+  // Don't show modal on landing page or if not needed
+  if (
+    pathname === "/" ||
+    !["/personal", "/links", "/skills"].includes(pathname)
+  ) {
+    return null;
+  }
 
   return (
     <div className="absolute inset-0 z-20 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center">
@@ -73,7 +83,7 @@ function ModalLayer({
               console.error("Failed to save personal info:", err);
             }
           }}
-          onClose={() => navigate("/dashboard")}
+          onClose={() => navigate("/gethired/dashboard")}
         />
       )}
 
@@ -93,7 +103,7 @@ function ModalLayer({
               console.error("Failed to save links:", error);
             }
           }}
-          onClose={() => navigate("/dashboard")}
+          onClose={() => navigate("/gethired/dashboard")}
           onBack={() => navigate("/personal")}
         />
       )}
@@ -108,12 +118,12 @@ function ModalLayer({
                 skills: selectedSkills,
               });
               setSkills(selectedSkills);
-              navigate("/dashboard");
+              navigate("/gethired/dashboard");
             } catch (error) {
               console.error("Error saving skills:", error);
             }
           }}
-          onClose={() => navigate("/dashboard")}
+          onClose={() => navigate("/gethired/dashboard")}
           onBack={() => navigate("/links")}
         />
       )}
@@ -126,20 +136,35 @@ function App() {
   const [linkInfo, setLinkInfo] = useState({});
   const [skills, setSkills] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState(localStorage.getItem("token"));
+  const location = useLocation();
 
-  // Fetch personal info from backend
+  // Set up axios defaults when token changes
+  useEffect(() => {
+    if (token) {
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    } else {
+      delete axios.defaults.headers.common["Authorization"];
+    }
+  }, [token]);
+
+  // Fetch user data from backend (personal info, links, and skills)
   useEffect(() => {
     const fetchUserData = async () => {
       const userId = localStorage.getItem("userId");
-      if (!userId) {
+      const authToken = localStorage.getItem("token");
+
+      if (!userId || !authToken) {
         setIsLoading(false);
         return;
       }
 
       try {
+        // Fetch personal info
         const personalRes = await axios.get(
           `http://localhost:5000/api/personal-info/${userId}`
         );
+
         if (personalRes.data) {
           setPersonalInfo(personalRes.data);
           setLinkInfo({
@@ -148,9 +173,28 @@ function App() {
             resume: personalRes.data.resume || "",
           });
         }
+
+        // Fetch skills data
+        try {
+          const skillsRes = await axios.get(
+            `http://localhost:5000/api/skills/${userId}`
+          );
+
+          if (skillsRes.data && skillsRes.data.skills) {
+            setSkills(skillsRes.data.skills);
+          }
+        } catch (skillsError) {
+          console.error("Error fetching skills:", skillsError);
+        }
       } catch (error) {
         console.error("Error fetching user data:", error);
-        if (error.response?.status === 404) {
+        if (error.response?.status === 401) {
+          // Clear auth data if unauthorized
+          localStorage.removeItem("token");
+          localStorage.removeItem("userId");
+          setToken(null);
+        } else if (error.response?.status === 404) {
+          // Only remove userId if user not found
           localStorage.removeItem("userId");
         }
       } finally {
@@ -159,9 +203,9 @@ function App() {
     };
 
     fetchUserData();
-  }, []);
+  }, [token]);
 
-  if (isLoading) {
+  if (isLoading && location.pathname !== "/") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-xl text-gray-600">Loading...</div>
@@ -170,37 +214,57 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="relative min-h-screen bg-gray-100">
-        <ModalLayer
-          personalInfo={personalInfo}
-          setPersonalInfo={setPersonalInfo}
-          linkInfo={linkInfo}
-          setLinkInfo={setLinkInfo}
-          skills={skills}
-          setSkills={setSkills}
-        />
+    <div className="relative min-h-screen bg-gray-100">
+      <ModalLayer
+        personalInfo={personalInfo}
+        setPersonalInfo={setPersonalInfo}
+        linkInfo={linkInfo}
+        setLinkInfo={setLinkInfo}
+        skills={skills}
+        setSkills={setSkills}
+      />
 
-        {/* Always show Dashboard */}
-        <DashboardWrapper
-          personalInfo={personalInfo}
-          linkInfo={linkInfo}
-          skills={skills}
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
+        
+        {/* Profile setup routes */}
+        <Route path="/personal" element={null} />
+        <Route path="/links" element={null} />
+        <Route path="/skills" element={null} />
+        
+        {/* GetHired (Talent) routes */}
+        <Route
+          path="/gethired/dashboard"
+          element={
+            <DashboardWrapper
+              personalInfo={personalInfo}
+              linkInfo={linkInfo}
+              skills={skills}
+            />
+          }
         />
-
-        <Routes>
-          <Route 
-            path="/" 
-            element={<Navigate to={!personalInfo.name ? "/personal" : "/dashboard"} />} 
-          />
-          <Route path="/personal" element={null} />
-          <Route path="/links" element={null} />
-          <Route path="/skills" element={null} />
-          <Route path="/dashboard" element={null} />
-        </Routes>
-      </div>
-    </Router>
+        
+        {/* Hire (Recruiter) routes */}
+        <Route path="/hire/profile" element={<HireProfile />} />
+        <Route path="/hire/projects" element={<HireDashboard />} />
+        <Route path="/hire/post-project" element={<PostProject />} />
+        
+        {/* Redirects for old paths */}
+        <Route path="/dashboard" element={<Navigate to="/gethired/dashboard" />} />
+        
+        {/* Redirect unknown paths to landing */}
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </div>
   );
 }
 
-export default App;
+// Wrap App with Router at export
+export default function AppWrapper() {  
+  return (
+    <Router>
+      <App />
+    </Router>
+  );
+}
