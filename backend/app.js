@@ -39,6 +39,7 @@ app.use(rateLimit({
 
 // Mount routes
 app.use('/api', scoringRouter);
+app.use('/api/users', require('./routes/users'));
 
 // Debug route to verify router mounting
 app.get('/api-test', (req, res) => {

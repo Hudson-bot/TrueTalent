@@ -12,6 +12,7 @@ import SkillSelectModal from "./components/SkillSelectModal";
 import Dashboard from "./pages/Dashboard";
 import axios from "axios";
 import { useState, useEffect } from "react";
+import CommunityPage from "./components/CommunityPage";
 
 // Wrapper for Dashboard to handle edit navigation
 function DashboardWrapper({ personalInfo, linkInfo, skills }) {
@@ -172,31 +173,28 @@ function App() {
   return (
     <Router>
       <div className="relative min-h-screen bg-gray-100">
-        <ModalLayer
-          personalInfo={personalInfo}
-          setPersonalInfo={setPersonalInfo}
-          linkInfo={linkInfo}
-          setLinkInfo={setLinkInfo}
-          skills={skills}
-          setSkills={setSkills}
-        />
-
-        {/* Always show Dashboard */}
-        <DashboardWrapper
-          personalInfo={personalInfo}
-          linkInfo={linkInfo}
-          skills={skills}
-        />
-
         <Routes>
-          <Route 
-            path="/" 
-            element={<Navigate to={!personalInfo.name ? "/personal" : "/dashboard"} />} 
+          <Route path="/community" element={<CommunityPage />} />
+          <Route
+            path="/*"
+            element={
+              <>
+                <ModalLayer
+                  personalInfo={personalInfo}
+                  setPersonalInfo={setPersonalInfo}
+                  linkInfo={linkInfo}
+                  setLinkInfo={setLinkInfo}
+                  skills={skills}
+                  setSkills={setSkills}
+                />
+                <DashboardWrapper
+                  personalInfo={personalInfo}
+                  linkInfo={linkInfo}
+                  skills={skills}
+                />
+              </>
+            }
           />
-          <Route path="/personal" element={null} />
-          <Route path="/links" element={null} />
-          <Route path="/skills" element={null} />
-          <Route path="/dashboard" element={null} />
         </Routes>
       </div>
     </Router>

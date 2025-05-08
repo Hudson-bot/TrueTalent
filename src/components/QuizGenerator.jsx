@@ -17,6 +17,8 @@ export default function QuizGenerator() {
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
+  const [averageScore, setAverageScore] = useState(0);
+  const [showReattemptDialog, setShowReattemptDialog] = useState(false);
 
   const handleFileChange = (e) => {
     setResume(e.target.files[0]);
@@ -155,17 +157,49 @@ export default function QuizGenerator() {
         questions: questions,
         answers: responses
       });
+      
+      // Calculate average score
+      const scores = response.data.results.map(r => r.analysis.score);
+      const average = scores.reduce((a, b) => a + b, 0) / scores.length;
+      setAverageScore(average);
+      
+      // Store score in localStorage
+      const existingScores = JSON.parse(localStorage.getItem('quizScores')) || [];
+      const newScore = {
+        name: localStorage.getItem('userName') || 'Anonymous User',
+        average: average,
+        date: new Date().toISOString()
+      };
+      localStorage.setItem('quizScores', JSON.stringify([...existingScores, newScore]));
+      
       setResults(response.data.results);
       setShowResults(true);
+
+      if (average < 5) {
+        setShowReattemptDialog(true);
+      }
     } catch (error) {
       console.error('Error scoring quiz:', error);
       alert('Failed to score quiz responses');
     }
   };
 
+  const handleReattempt = () => {
+    setQuizStarted(false);
+    setCurrentQuestionIndex(0);
+    setResponses([]);
+    setResults([]);
+    setShowResults(false);
+    setShowReattemptDialog(false);
+    setLiveTranscript('');
+  };
+
   const renderResults = () => (
     <div className="results-container p-4 bg-gray-50 rounded-lg">
       <h2 className="text-2xl font-bold mb-4 text-center">Quiz Results 🎯</h2>
+      <div className="text-center mb-4">
+        <p className="text-xl font-bold">Average Score: {averageScore.toFixed(1)}/10</p>
+      </div>
       {results.map((result, i) => (
         <div key={i} className="mb-6 border p-4 rounded-lg bg-white shadow-sm">
           <h3 className="text-lg font-semibold text-blue-700">Question {i + 1}</h3>
@@ -187,6 +221,30 @@ export default function QuizGenerator() {
           </div>
         </div>
       ))}
+
+      {/* Add reattempt dialog */}
+      {showReattemptDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-lg shadow-xl max-w-md mx-4">
+            <h3 className="text-xl font-bold mb-4">Your average score is below 5</h3>
+            <p className="mb-4">Would you like to attempt the quiz again?</p>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setShowReattemptDialog(false)}
+                className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+              >
+                Try Later
+              </button>
+              <button
+                onClick={handleReattempt}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Reattempt Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

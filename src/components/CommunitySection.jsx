@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
+import { useNavigate } from 'react-router-dom';
 import QuizGenerator from "./QuizGenerator";
 import ProjectSlider from './ProjectSlider';
 
@@ -9,6 +10,7 @@ const CommunitySection = ({ personalInfo }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -56,8 +58,18 @@ const CommunitySection = ({ personalInfo }) => {
           {userName ? `Hey, ${userName}!` : "Welcome to the Community!"}
         </h2>
         <p className="text-gray-600 mt-2">Connect, share, and grow with fellow developers</p>
+        {localStorage.getItem('quizScores') && (
+          <div className="mt-3">
+            <p className="text-lg font-semibold text-purple-600">
+              Your Latest Score: {
+                JSON.parse(localStorage.getItem('quizScores')).slice(-1)[0]?.average.toFixed(1) || 0
+              }/10
+            </p>
+          </div>
+        )}
       </motion.div>
 
+      
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -75,6 +87,7 @@ const CommunitySection = ({ personalInfo }) => {
 
         <div className="flex justify-center space-x-4">
           <motion.button
+            onClick={() => navigate('/community')}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 text-white font-medium rounded-lg shadow-md hover:shadow-lg transition"
