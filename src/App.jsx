@@ -19,6 +19,9 @@ import { useState, useEffect } from "react";
 import "./App.css";
 import CommunityPage from "./components/getHired/CommunityPage";
 import ProjectSlider from "./components/getHired/ProjectSlider";
+import Login from "./components/Authentication/Login";
+import Signup from "./components/Authentication/Signup";
+import { AuthProvider } from "./context/AuthContext";
 
 // Wrapper for Dashboard to handle edit navigation
 function DashboardWrapper({ personalInfo, linkInfo, skills }) {
@@ -229,6 +232,8 @@ function App() {
       <Routes>
         {/* Public routes */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
         
         {/* Profile setup routes */}
         <Route path="/personal" element={null} />
@@ -263,11 +268,13 @@ function App() {
   );
 }
 
-// Wrap App with Router at export
+// Wrap App with Router and AuthProvider at export
 export default function AppWrapper() {  
   return (
     <Router>
-      <App />
+      <AuthProvider>
+        <App />
+      </AuthProvider>
     </Router>
   );
 }

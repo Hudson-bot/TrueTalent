@@ -1,8 +1,11 @@
 import React from "react";
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import "./Header.css";
 
 const Header = () => {
+  const navigate = useNavigate();
+
   return (
     <header className="header">
       <motion.div
@@ -40,6 +43,7 @@ const Header = () => {
             className="btn btn-secondary"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/login')}
           >
             Log In
           </motion.button>
@@ -50,6 +54,7 @@ const Header = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.2 }}
+            onClick={() => navigate('/signup')}
           >
             Sign Up
           </motion.button>

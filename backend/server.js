@@ -10,6 +10,7 @@ import projectRoutes from './routes/projectRoutes.js';
 import path from 'path';
 import scoring from "./routes/scoring.js";
 import usersRouter from './routes/users.js';
+import authRoutes from './routes/authRoutes.js';  
 
 dotenv.config();
 
@@ -24,7 +25,24 @@ app.use(cors());
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
+
+app.get('/test-email', async (req, res) => {
+  const { sendEmail } = require('./utils/emailSender');
+  try {
+    await sendEmail({
+      email: 'your_real_email@example.com', // 👈 Test with your actual email
+      subject: 'SMTP Test',
+      message: 'This is a test email'
+    });
+    res.send('Email sent!');
+  } catch (err) {
+    console.error('SMTP Error:', err);
+    res.status(500).send('Error: ' + err.message);
+  }
+});
+
 // Mount routes
+app.use('/api/auth', authRoutes);
 app.use('/api', userRoutes);
 app.use('/api', resume);
 app.use('/api', scoring);
