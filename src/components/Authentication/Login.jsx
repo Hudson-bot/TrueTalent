@@ -39,8 +39,8 @@ function Login() {
         }
 
         const redirectPath = result.user.role === 'client'
-          ? '/dashboard'
-          : '/dashboard';
+          ? '/'
+          : '/';
 
         navigate(redirectPath);
       } else {
