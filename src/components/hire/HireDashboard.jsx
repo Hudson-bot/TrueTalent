@@ -5,8 +5,40 @@ import axios from 'axios';
 import { FiPlus, FiEdit, FiTrash2, FiShare2, FiX, FiCheck, FiPaperclip, FiList, FiUsers, FiLink, FiUserPlus, FiClock } from 'react-icons/fi';
 import HireSidebar from './HireSidebar';
 
+// Toggle switch component
+const ToggleSwitch = ({ isOn, onToggle, disabled = false }) => {
+  const handleClick = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (!disabled) {
+      onToggle();
+    }
+  };
+
+  return (
+    <button 
+      onClick={handleClick}
+      className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors ease-in-out duration-200 focus:outline-none ${
+        isOn ? 'bg-green-600' : 'bg-gray-300'
+      } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+      role="switch"
+      aria-checked={isOn}
+      tabIndex={disabled ? -1 : 0}
+    >
+      <span
+        className={`inline-block w-4 h-4 transform bg-white rounded-full transition ease-in-out duration-200 ${
+          isOn ? 'translate-x-6' : 'translate-x-1'
+        }`}
+      />
+    </button>
+  );
+};
+
 // Project card component
-const ProjectCard = ({ project, onSelect }) => {
+const ProjectCard = ({ project, onSelect, onToggleBidding }) => {
+  const handleToggle = () => {
+    onToggleBidding(project._id, project.status === 'open' ? 'in-progress' : 'open');
+  };
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -43,6 +75,15 @@ const ProjectCard = ({ project, onSelect }) => {
         <div>
           <span>{project.currency} {project.minBudget}-{project.maxBudget}</span>
         </div>
+      </div>
+      
+      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
+        <span className="text-sm text-gray-600">Bidding {project.status === 'open' ? 'Open' : 'Closed'}</span>
+        <ToggleSwitch 
+          isOn={project.status === 'open'} 
+          onToggle={handleToggle}
+          disabled={project.status === 'completed'} 
+        />
       </div>
     </motion.div>
   );
@@ -297,11 +338,11 @@ const HireDashboard = () => {
         setProjects(response.data);
       } catch (error) {
         console.error("Error fetching projects:", error);
-        if (error.response && error.response.status === 404) {
-          alert("No projects found for this user.");
-        } else {
-          alert("Failed to fetch projects. Please try again.");
-        }
+        // if (error.response && error.response.status === 404) {
+        //   alert("No projects found for this user.");
+        // } else {
+        //   alert("Failed to fetch projects. Please try again.");
+        // }
       } finally {
         setIsLoading(false); // Ensure loading is set to false after fetching
       }
@@ -314,6 +355,50 @@ const HireDashboard = () => {
   const handleSelectProject = (project) => {
     setSelectedProject(project);
     setActiveTab('description');
+  };
+  
+  // Handle toggling bidding status
+  const handleToggleBidding = async (projectId, newStatus) => {
+    try {
+      console.log(`Toggling project ${projectId} to status: ${newStatus}`);
+      
+      // Only send the status field to avoid issues with the backend
+      const response = await axios.put(`http://localhost:5000/api/projects/${projectId}`, {
+        status: newStatus
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      console.log('Toggle response:', response.data);
+
+      // Update the projects list with the new status
+      const updatedProjects = projects.map(p =>
+        p._id === projectId
+          ? { ...p, status: newStatus }
+          : p
+      );
+      
+      setProjects(updatedProjects);
+      console.log('Projects updated:', updatedProjects);
+
+      // If this is the selected project, update it too
+      if (selectedProject && selectedProject._id === projectId) {
+        const updatedProject = { ...selectedProject, status: newStatus };
+        setSelectedProject(updatedProject);
+        console.log('Selected project updated:', updatedProject);
+      }
+    } catch (error) {
+      console.error('Error toggling bidding status:', error);
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        alert(`Failed to update project status: ${error.response.data.message || error.message}`);
+      } else {
+        alert(`Failed to update project status: ${error.message}`);
+      }
+    }
   };
 
   // Handle adding a new task
@@ -533,17 +618,17 @@ const HireDashboard = () => {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 font-sans">
+    <div className="flex flex-col md:flex-row h-screen bg-gray-50 font-sans">
       <HireSidebar activeTab="projects" />
 
-      <div className="flex-1 overflow-hidden flex">
+      <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
         {/* Projects list */}
-        <div className="w-1/3 border-r border-gray-200 overflow-y-auto p-6">
+        <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r border-gray-200 overflow-y-auto p-4 md:p-6">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800">My Projects</h1>
             <button
               onClick={() => navigate('/hire/post-project')}
-              className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex items-center gap-1 px-2 py-1 sm:px-3 sm:py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm sm:text-base"
             >
               <FiPlus size={16} />
               New Project
@@ -571,6 +656,7 @@ const HireDashboard = () => {
                   key={project._id}
                   project={project}
                   onSelect={handleSelectProject}
+                  onToggleBidding={handleToggleBidding}
                 />
               ))}
             </div>
@@ -578,7 +664,7 @@ const HireDashboard = () => {
         </div>
 
         {/* Project details */}
-        <div className="w-2/3 overflow-y-auto">
+        <div className="w-full md:w-2/3 overflow-y-auto">
           {selectedProject ? (
             <div className="p-6">
               <div className="flex justify-between items-start mb-6">
@@ -598,43 +684,49 @@ const HireDashboard = () => {
                   </div>
                 </div>
 
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-2 mt-2 sm:mt-0">
                   <button
                     onClick={() => setShowShareModal(true)}
                     className="flex items-center gap-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                   >
                     <FiShare2 size={16} />
-                    Share
+                    <span className="hidden sm:inline">Share</span>
                   </button>
                   <button
                     onClick={handleEditProject}
                     className="flex items-center gap-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                   >
                     <FiEdit size={16} />
-                    Edit
+                    <span className="hidden sm:inline">Edit</span>
                   </button>
-                  {selectedProject.status === 'open' && (
-                    <button
-                      onClick={handleCloseBidding}
-                      className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                    >
-                      <FiCheck size={16} />
-                      Close Bidding
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Bidding:</span>
+                    <ToggleSwitch 
+                      isOn={selectedProject.status === 'open'} 
+                      onToggle={() => {
+                        const newStatus = selectedProject.status === 'open' ? 'in-progress' : 'open';
+                        console.log(`Toggling selected project to ${newStatus}`);
+                        handleToggleBidding(selectedProject._id, newStatus);
+                      }}
+                      disabled={selectedProject.status === 'completed'} 
+                    />
+                    <span className="text-sm text-gray-600">
+                      {selectedProject.status === 'open' ? 'Open' : 'Closed'}
+                    </span>
+                  </div>
                   <button
                     onClick={handleDeleteProject}
                     className="flex items-center gap-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200"
                   >
                     <FiTrash2 size={16} />
-                    Delete
+                    <span className="hidden sm:inline">Delete</span>
                   </button>
                 </div>
               </div>
 
               {/* Tabs */}
-              <div className="border-b border-gray-200 mb-6">
-                <nav className="flex space-x-8">
+              <div className="border-b border-gray-200 mb-6 overflow-x-auto">
+                <nav className="flex space-x-4 sm:space-x-8 whitespace-nowrap">
                   <button
                     onClick={() => setActiveTab('description')}
                     className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'description'
@@ -678,13 +770,13 @@ const HireDashboard = () => {
               <div className="pb-6">
                 {activeTab === 'description' && (
                   <div>
-                    <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+                    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-6">
                       <h2 className="text-lg font-semibold text-gray-800 mb-4">Project Description</h2>
                       <p className="text-gray-700 whitespace-pre-line">{selectedProject.description}</p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-6">
-                      <div className="bg-white rounded-xl shadow-sm p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                         <h2 className="text-lg font-semibold text-gray-800 mb-4">Project Details</h2>
                         <div className="space-y-3">
                           <div className="flex justify-between">
@@ -704,7 +796,7 @@ const HireDashboard = () => {
                         </div>
                       </div>
 
-                      <div className="bg-white rounded-xl shadow-sm p-6">
+                      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                         <h2 className="text-lg font-semibold text-gray-800 mb-4">Required Skills</h2>
                         <div className="flex flex-wrap gap-2">
                           {selectedProject.requiredSkills.map((skill, index) => (
@@ -721,7 +813,7 @@ const HireDashboard = () => {
                 {activeTab === 'proposals' && (
                   <div>
                     {(selectedProject.proposals?.length || 0) === 0 ? (
-                      <div className="text-center py-12 bg-white rounded-xl shadow-sm">
+                      <div className="text-center py-8 sm:py-12 bg-white rounded-xl shadow-sm">
                         <div className="text-gray-400 mb-4">
                           <FiUsers size={48} className="mx-auto" />
                         </div>
@@ -742,7 +834,7 @@ const HireDashboard = () => {
 
                 {activeTab === 'files' && (
                   <div>
-                    <div className="bg-white rounded-xl shadow-sm p-6 mb-6">
+                    <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-6">
                       <div className="flex justify-between items-center mb-4">
                         <h2 className="text-lg font-semibold text-gray-800">Project Files</h2>
                         <label className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer">
@@ -779,7 +871,7 @@ const HireDashboard = () => {
                     </div>
 
                     {selectedProject.attachmentUrl && (
-                      <div className="bg-white rounded-xl shadow-sm p-6">
+                      <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                         <h2 className="text-lg font-semibold text-gray-800 mb-4">Original Attachment</h2>
                         {selectedProject.attachmentType?.startsWith('image/') ? (
                           <img
@@ -806,7 +898,7 @@ const HireDashboard = () => {
                 )}
 
                 {activeTab === 'tasks' && (
-                  <div className="bg-white rounded-xl shadow-sm p-6">
+                  <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6">
                     <h2 className="text-lg font-semibold text-gray-800 mb-4">Project Tasks</h2>
 
                     <div className="flex items-center mb-6">

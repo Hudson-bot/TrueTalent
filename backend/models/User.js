@@ -1,39 +1,137 @@
-// backend/models/User.js
 import mongoose from 'mongoose';
+import bcryptjs from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 const userSchema = new mongoose.Schema({
   userId: {
     type: String,
-    required: true,
-    unique: true
+    unique: true,
+    sparse: true // This allows multiple null values (important for our case)
+  },
+  name: {
+    type: String,
+    required: [true, 'Please add a name'],
+    trim: true
   },
   email: {
     type: String,
-    required: true,
+    required: [true, 'Please add an email'],
     unique: true,
-    trim: true,
     lowercase: true,
-    match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    trim: true,
+    match: [
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      'Please add a valid email'
+    ]
   },
-  name: String,
-  title: String,
-  bio: String,
+  role: {
+    type: String,
+    enum: ['client', 'freelancer'],
+    required: [true, 'Please select a role']
+  },
+  hasBeenClient: {
+    type: Boolean,
+    default: false
+  },
+  // Client profile fields
+  phone: {
+    type: String,
+    trim: true
+  },
+  location: {
+    type: String,
+    trim: true
+  },
+  company: {
+    type: String,
+    trim: true
+  },
+  industry: {
+    type: String,
+    trim: true
+  },
+  // Freelancer profile fields
+  title: {
+    type: String,
+    trim: true
+  },
+  bio: {
+    type: String,
+    trim: true
+  },
   github: {
     type: String,
-    default: ''
+    trim: true
   },
   linkedin: {
     type: String,
-    default: ''
+    trim: true
   },
   resume: {
     type: String,
-    default: ''
+    trim: true
   },
   skills: {
     type: [String],
     default: []
-  }
-}, { timestamps: true });
+  },
+  password: {
+    type: String,
+    required: [true, 'Please add a password'],
+    minlength: 6,
+    select: false
+  },
+  resetPasswordToken: String,
+  resetPasswordExpire: Date
+}, {
+  timestamps: true
+});
 
-export default mongoose.model('User', userSchema);
+// Password hashing middleware
+userSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) return next();
+
+  try {
+    const salt = await bcryptjs.genSalt(10);
+    this.password = await bcryptjs.hash(this.password, salt);
+    next();
+  } catch (err) {
+    console.error('Password hashing error:', err);
+    next(err);
+  }
+});
+
+// Sign JWT and return
+userSchema.methods.getSignedJwtToken = function () {
+  return jwt.sign(
+    { id: this._id, role: this.role },
+    process.env.JWT_SECRET || 'fallback_secret',
+    { expiresIn: '24h' }
+  );
+};
+
+// Match user entered password to hashed password in database
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcryptjs.compare(enteredPassword, this.password);
+};
+
+// Generate and hash password token
+userSchema.methods.getResetPasswordToken = function () {
+  // Generate token
+  const resetToken = crypto.randomBytes(20).toString('hex');
+
+  // Hash token and set to resetPasswordToken field
+  this.resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // Set expire
+  this.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+  return resetToken;
+};
+
+const User = mongoose.model('User', userSchema);
+export default User;

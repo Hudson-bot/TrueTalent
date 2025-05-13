@@ -1,5 +1,6 @@
-const express = require('express');
-const { analyzeAnswer } = require('../services/openRouter');
+import express from 'express';
+import { analyzeAnswer } from '../services/openRouter.js';
+
 const router = express.Router();
 
 router.post('/', async (req, res) => {
@@ -18,4 +19,4 @@ router.post('/', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

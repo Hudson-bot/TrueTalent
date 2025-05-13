@@ -1,6 +1,6 @@
-const express = require('express');
-const axios = require('axios');
-const { generateQuestions } = require('../services/openRouter');
+import express from 'express';
+import axios from 'axios';
+import { generateQuestions } from '../services/openRouter.js';
 
 const router = express.Router();
 
@@ -21,4 +21,4 @@ router.post('/analyze', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

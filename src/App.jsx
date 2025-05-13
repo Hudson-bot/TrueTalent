@@ -13,6 +13,7 @@ import SkillSelectModal from "./components/getHired/SkillSelectModal";
 import HireDashboard from "./components/hire/HireDashboard";
 import PostProject from "./components/hire/PostProject";
 import HireProfile from "./components/hire/HireProfile";
+import ProtectedRoute from "./components/ProtectedRoute";
 import axios from "axios";
 import LandingPage from "./pages/LandingPage/LandingPage";
 import { useState, useEffect } from "react";
@@ -21,6 +22,8 @@ import CommunityPage from "./components/getHired/CommunityPage";
 import ProjectSlider from "./components/getHired/ProjectSlider";
 import Login from "./components/Authentication/Login";
 import Signup from "./components/Authentication/Signup";
+import ForgotPassword from "./components/Authentication/ForgotPassword";
+import ResetPassword from "./components/Authentication/ResetPassword";
 import { AuthProvider } from "./context/AuthContext";
 
 // Wrapper for Dashboard to handle edit navigation
@@ -46,6 +49,7 @@ function ModalLayer({
   setLinkInfo,
   skills,
   setSkills,
+  isAuthenticated,
 }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -80,12 +84,20 @@ function ModalLayer({
                 {
                   userId,
                   ...info,
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                  },
                 }
               );
               setPersonalInfo(res.data);
               navigate("/links");
             } catch (err) {
               console.error("Failed to save personal info:", err);
+              if (err.response?.status === 401) {
+                navigate("/login");
+              }
             }
           }}
           onClose={() => navigate("/gethired/dashboard")}
@@ -100,12 +112,20 @@ function ModalLayer({
             try {
               const response = await axios.put(
                 `http://localhost:5000/api/users/${userId}/links`,
-                links
+                links,
+                {
+                  headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                  },
+                }
               );
               setLinkInfo(response.data);
               navigate("/skills");
             } catch (error) {
               console.error("Failed to save links:", error);
+              if (error.response?.status === 401) {
+                navigate("/login");
+              }
             }
           }}
           onClose={() => navigate("/gethired/dashboard")}
@@ -118,14 +138,25 @@ function ModalLayer({
           existingSkills={skills}
           onSave={async (selectedSkills) => {
             try {
-              await axios.post("http://localhost:5000/api/skills", {
-                userId,
-                skills: selectedSkills,
-              });
+              await axios.post(
+                "http://localhost:5000/api/skills",
+                {
+                  userId,
+                  skills: selectedSkills,
+                },
+                {
+                  headers: {
+                    Authorization: `Bearer ${localStorage.getItem("token")}`,
+                  },
+                }
+              );
               setSkills(selectedSkills);
               navigate("/gethired/dashboard");
             } catch (error) {
               console.error("Error saving skills:", error);
+              if (error.response?.status === 401) {
+                navigate("/login");
+              }
             }
           }}
           onClose={() => navigate("/gethired/dashboard")}
@@ -142,14 +173,68 @@ function App() {
   const [skills, setSkills] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem("token"));
+  const [userEmail, setUserEmail] = useState(localStorage.getItem("userEmail"));
+  const [userRole, setUserRole] = useState(localStorage.getItem("userRole"));
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem("token"));
   const location = useLocation();
 
-  // Set up axios defaults when token changes
+  // Check authentication status
   useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-    } else {
-      delete axios.defaults.headers.common["Authorization"];
+    const checkAuth = async () => {
+      const authToken = localStorage.getItem("token");
+      if (!authToken) {
+        setIsAuthenticated(false);
+        return;
+      }
+
+      try {
+        const response = await axios.get("http://localhost:5000/api/auth/me", {
+          headers: {
+            Authorization: `Bearer ${authToken}`
+          }
+        });
+
+        if (response.data) {
+          setIsAuthenticated(true);
+          // Update email and role if not already set
+          if (!localStorage.getItem("userEmail")) {
+            localStorage.setItem("userEmail", response.data.email);
+            setUserEmail(response.data.email);
+          }
+          if (!localStorage.getItem("userRole")) {
+            localStorage.setItem("userRole", response.data.role);
+            setUserRole(response.data.role);
+          }
+        }
+      } catch (error) {
+        console.error("Auth check failed:", error);
+        setIsAuthenticated(false);
+        // Clear all auth data
+        localStorage.removeItem("token");
+        localStorage.removeItem("userEmail");
+        localStorage.removeItem("userRole");
+        localStorage.removeItem("userId");
+        setToken(null);
+        setUserEmail(null);
+        setUserRole(null);
+      }
+    };
+
+    checkAuth();
+  }, [token]);
+
+  // Clear user data when token changes
+  useEffect(() => {
+    if (!token) {
+      setPersonalInfo({});
+      setLinkInfo({});
+      setSkills([]);
+      localStorage.removeItem("userEmail");
+      localStorage.removeItem("userRole");
+      localStorage.removeItem("userId");
+      setUserEmail(null);
+      setUserRole(null);
+      setIsAuthenticated(false);
     }
   }, [token]);
 
@@ -161,13 +246,29 @@ function App() {
 
       if (!userId || !authToken) {
         setIsLoading(false);
+        // Clear any existing data
+        setPersonalInfo({});
+        setLinkInfo({});
+        setSkills([]);
         return;
       }
 
       try {
-        // Fetch personal info
+        // First verify the token is valid
+        await axios.get("http://localhost:5000/api/auth/me", {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
+
+        // Continue with data fetching only if token is valid
         const personalRes = await axios.get(
-          `http://localhost:5000/api/personal-info/${userId}`
+          `http://localhost:5000/api/personal-info/${userId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
+          }
         );
 
         if (personalRes.data) {
@@ -179,28 +280,29 @@ function App() {
           });
         }
 
-        // Fetch skills data
-        try {
-          const skillsRes = await axios.get(
-            `http://localhost:5000/api/skills/${userId}`
-          );
-
-          if (skillsRes.data && skillsRes.data.skills) {
-            setSkills(skillsRes.data.skills);
+        const skillsRes = await axios.get(
+          `http://localhost:5000/api/skills/${userId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+            },
           }
-        } catch (skillsError) {
-          console.error("Error fetching skills:", skillsError);
+        );
+
+        if (skillsRes.data && skillsRes.data.skills) {
+          setSkills(skillsRes.data.skills);
         }
       } catch (error) {
         console.error("Error fetching user data:", error);
         if (error.response?.status === 401) {
-          // Clear auth data if unauthorized
+          // Clear all auth data if unauthorized
           localStorage.removeItem("token");
           localStorage.removeItem("userId");
           setToken(null);
-        } else if (error.response?.status === 404) {
-          // Only remove userId if user not found
-          localStorage.removeItem("userId");
+          // Clear state data
+          setPersonalInfo({});
+          setLinkInfo({});
+          setSkills([]);
         }
       } finally {
         setIsLoading(false);
@@ -227,49 +329,135 @@ function App() {
         setLinkInfo={setLinkInfo}
         skills={skills}
         setSkills={setSkills}
+        isAuthenticated={isAuthenticated}
       />
 
-      <Routes>
-        {/* Public routes */}
+      {/* <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        
-        {/* Profile setup routes */}
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Navigate to="/gethired/dashboard" /> : <Login />}
+        />
+        <Route
+          path="/signup"
+          element={isAuthenticated ? <Navigate to="/gethired/dashboard" /> : <Signup />}
+        />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
+
         <Route path="/personal" element={null} />
         <Route path="/links" element={null} />
         <Route path="/skills" element={null} />
-        
-        {/* GetHired (Talent) routes */}
+
         <Route
           path="/gethired/dashboard"
           element={
-            <DashboardWrapper
-              personalInfo={personalInfo}
-              linkInfo={linkInfo}
-              skills={skills}
-            />
+            <ProtectedRoute requiredRole="freelancer">
+              <DashboardWrapper
+                personalInfo={personalInfo}
+                linkInfo={linkInfo}
+                skills={skills}
+              />
+            </ProtectedRoute>
           }
         />
-        <Route path = "/community" element={<CommunityPage />} />
-        <Route path="/projects" element={<ProjectSlider />} />
-        {/* Hire (Recruiter) routes */}
-        <Route path="/hire/profile" element={<HireProfile />} />
-        <Route path="/hire/projects" element={<HireDashboard />} />
-        <Route path="/hire/post-project" element={<PostProject />} />
-        
-        {/* Redirects for old paths */}
+        <Route
+          path="/community"
+          element={
+            <ProtectedRoute>
+              <CommunityPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/projects"
+          element={
+            <ProtectedRoute>
+              <ProjectSlider />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/hire/profile"
+          element={
+            <ProtectedRoute requiredRole="client">
+              <HireProfile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hire/projects"
+          element={
+            <ProtectedRoute requiredRole="client">
+              <HireDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/hire/post-project"
+          element={
+            <ProtectedRoute requiredRole="client">
+              <PostProject />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="/dashboard" element={<Navigate to="/gethired/dashboard" />} />
-        
-        {/* Redirect unknown paths to landing */}
+
         <Route path="*" element={<Navigate to="/" />} />
+      </Routes> */}
+      <Router>
+      <Routes>
+        {/* Public routes */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        
+        {/* Protected routes for hiring clients */}
+        <Route 
+          path="/hire/*" 
+          element={user?.role === 'hire' ? <HireLayout /> : <Navigate to="/login" />} 
+        >
+          <Route path="dashboard" element={<HireDashboard />} />
+          <Route path="profile" element={<HireProfile />} />
+          <Route path="post-project" element={<PostProject />} />
+          <Route path="projects" element={<HireDashboard />} />
+          <Route path="talents" element={<TalentDashboard />} />
+        </Route>
+        
+        {/* Protected routes for talent/freelancers */}
+        <Route 
+          path="/talent/*" 
+          element={user?.role === 'talent' ? <TalentLayout /> : <Navigate to="/login" />} 
+        >
+          <Route path="dashboard" element={<TalentDashboard />} />
+          {/* Add other talent-specific routes */}
+        </Route>
+        
+        {/* Default redirect based on role */}
+        <Route 
+          path="/" 
+          element={
+            user ? (
+              user.role === 'hire' ? (
+                <Navigate to="/hire/dashboard" />
+              ) : (
+                <Navigate to="/talent/dashboard" />
+              )
+            ) : (
+              <Navigate to="/login" />
+            )
+          } 
+        />
       </Routes>
+    </Router>
     </div>
   );
 }
 
 // Wrap App with Router and AuthProvider at export
-export default function AppWrapper() {  
+export default function AppWrapper() {
   return (
     <Router>
       <AuthProvider>

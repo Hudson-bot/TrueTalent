@@ -22,6 +22,9 @@ const Header = () => {
     navigate('/');
   };
 
+  const isClient = currentUser?.role === 'client';
+  const isFreelancer = currentUser?.role === 'freelancer';
+
   return (
     <header className="header">
       <motion.div
@@ -78,36 +81,61 @@ const Header = () => {
               </motion.button>
             </>
           ) : (
-            <div className="relative">
-              <motion.button
-                className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-medium"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => setShowDropdown(!showDropdown)}
-              >
-                {getInitials(currentUser.name)}
-              </motion.button>
-              
-              <AnimatePresence>
-                {showDropdown && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
-                  >
-                    <div className="py-1">
-                      <button
-                        onClick={handleLogout}
-                        className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        Logout
-                      </button>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            <>
+              <div className="relative">
+                <motion.button
+                  className="w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-medium"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowDropdown(!showDropdown)}
+                >
+                  {getInitials(currentUser.name)}
+                </motion.button>
+                
+                <AnimatePresence>
+                  {showDropdown && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5"
+                    >
+                      <div className="py-1">
+                        <button
+                          onClick={handleLogout}
+                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          Logout
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Conditional buttons based on user role */}
+              {/* {!isFreelancer && (
+                <motion.button
+                  className="btn btn-primary ml-4"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/hire/profile')}
+                >
+                  Hire a Freelancer
+                </motion.button>
+              )}
+
+              {!isClient && (
+                <motion.button
+                  className="btn btn-secondary ml-4"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => navigate('/gethired/dashboard')}
+                >
+                  Become a Freelancer
+                </motion.button>
+              )} */}
+            </>
           )}
         </div>
       </motion.div>

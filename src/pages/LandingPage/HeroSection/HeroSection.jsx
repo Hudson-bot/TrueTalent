@@ -1,10 +1,17 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import Lottie from "react-lottie";
 import { TypeAnimation } from "react-type-animation";
+import axios from "axios";
+import { useAuth } from "../../../context/AuthContext";
+import ClientInfoModal from "../../../components/hire/ClientInfoModal";
 import "./HeroSection.css"; // Adjust the path as necessary
 
 const HeroSection = ({ freelanceAnimationData, scrollY }) => {
+  const [loading, setLoading] = useState({ hire: false, freelancer: false });
+  const [showClientModal, setShowClientModal] = useState(false);
+  const [clientData, setClientData] = useState(null);
+  const { currentUser, fetchCurrentUser } = useAuth();
   const skills = [
     "Web Development",
     1500,
@@ -29,6 +36,111 @@ const HeroSection = ({ freelanceAnimationData, scrollY }) => {
     },
   };
 
+  // Handle client info save from modal
+  const handleSaveClientInfo = async (formData) => {
+    try {
+      setLoading({ ...loading, hire: true });
+      setClientData(formData);
+
+      // Update the user's role to 'client'
+      const token = localStorage.getItem('token');
+      const roleResponse = await axios.put(
+        'http://localhost:5000/api/auth/role',
+        { role: 'client' },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (roleResponse.data.success) {
+        // Update role in localStorage
+        localStorage.setItem('userRole', 'client');
+
+        // Note: The ClientInfoModal component already saves the client profile information
+        // so we don't need to duplicate that API call here
+
+        // Refresh user data in context
+        await fetchCurrentUser();
+
+        // Close modal
+        setShowClientModal(false);
+
+        // Navigate to client profile page
+        window.location.href = "/hire/profile";
+      }
+    } catch (error) {
+      console.error('Error updating role:', error);
+      alert('Failed to update your role. Please try again.');
+      setLoading({ ...loading, hire: false });
+      return false; // Return false to indicate failure
+    }
+
+    return true; // Return true to indicate success
+  };
+
+  const handleHireClick = () => {
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+
+    if (isLoggedIn) {
+      // Show client info modal instead of immediately updating role
+      setShowClientModal(true);
+    } else {
+      // Redirect to login if not logged in
+      window.location.href = "/login";
+    }
+  };
+
+  const [error, setError] = useState('');
+  const handleFreelancerClick = async () => {
+    const isLoggedIn = localStorage.getItem('isLoggedIn');
+
+    if (isLoggedIn) {
+      try {
+        setError('');
+        setLoading({ ...loading, freelancer: true });
+
+        // Call API to update user role to 'freelancer'
+        const token = localStorage.getItem('token');
+        const response = await axios.put(
+          'http://localhost:5000/api/auth/role',
+          { role: 'freelancer' },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`
+            }
+          }
+        );
+
+        if (response.data.success) {
+          // Update role in localStorage
+          localStorage.setItem('userRole', 'freelancer');
+
+          // Refresh user data in context
+          await fetchCurrentUser();
+
+          // Navigate to freelancer profile page
+          window.location.href = "/personal";
+        }
+      } catch (error) {
+        console.error('Error updating role:', error);
+
+        // Handle the case where user can't become a freelancer after being a client
+        if (error.response && error.response.status === 403) {
+          setError(error.response.data.message || 'You cannot switch to freelancer mode after being a client.');
+        } else {
+          setError('Failed to update role. Please try again.');
+        }
+      } finally {
+        setLoading({ ...loading, freelancer: false });
+      }
+    } else {
+      // Redirect to login if not logged in
+      window.location.href = "/login";
+    }
+  };
+
   return (
     <section className="hero">
       <div className="container hero-container">
@@ -47,6 +159,7 @@ const HeroSection = ({ freelanceAnimationData, scrollY }) => {
                 deletionSpeed={70}
                 repeat={Infinity}
                 className="typed-text"
+                cursor={false}
               />
             </div>
           </h1>
@@ -57,22 +170,35 @@ const HeroSection = ({ freelanceAnimationData, scrollY }) => {
           <div className="hero-cta">
             <motion.button
               className="btn btn-primary btn-large"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => window.location.href = "/hire/profile"}
+              whileHover={!loading.hire ? { scale: 1.05 } : undefined}
+              whileTap={!loading.hire ? { scale: 0.95 } : undefined}
+              onClick={handleHireClick}
+              disabled={loading.hire || loading.freelancer}
             >
-              Hire a Freelancer
+              {loading.hire ? 'Setting up...' : 'Hire a Freelancer'}
             </motion.button>
             <motion.button
               className="btn btn-outline btn-large"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => window.location.href = "/personal"}
+              whileHover={!loading.freelancer ? { scale: 1.05 } : undefined}
+              whileTap={!loading.freelancer ? { scale: 0.95 } : undefined}
+              onClick={handleFreelancerClick}
+              disabled={loading.hire || loading.freelancer}
             >
-              Become a Freelancer
-              
+              {loading.freelancer ? 'Setting up...' : 'Become a Freelancer'}
             </motion.button>
           </div>
+
+          {/* Error message display */}
+          {error && (
+            <motion.div
+              className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {error}
+            </motion.div>
+          )}
           <div className="hero-stats">
             {[
               { number: "8M+", label: "Freelancers" },
@@ -153,9 +279,8 @@ const HeroSection = ({ freelanceAnimationData, scrollY }) => {
                   delay: index * 0.5,
                 }}
                 style={{
-                  transform: `translateY(${scrollY * card.offset}px) rotate(${
-                    scrollY * card.rotate
-                  }deg)`,
+                  transform: `translateY(${scrollY * card.offset}px) rotate(${scrollY * card.rotate
+                    }deg)`,
                 }}
                 whileHover={{
                   scale: 1.1,
@@ -199,6 +324,22 @@ const HeroSection = ({ freelanceAnimationData, scrollY }) => {
           />
         </svg>
       </div>
+
+      {/* Client Info Modal */}
+      {showClientModal && (
+        <ClientInfoModal
+          onSave={handleSaveClientInfo}
+          onClose={() => setShowClientModal(false)}
+          existingData={{
+            name: localStorage.getItem('userName') || '',
+            email: localStorage.getItem('userEmail') || '',
+            phone: '',
+            location: '',
+            company: '',
+            industry: ''
+          }}
+        />
+      )}
     </section>
   );
 };
